@@ -69,26 +69,6 @@ function communication(min, sec, ds, ip, port) {
 }, ip, port);
 };
 
-// function communication2(min, sec, ds) {
-//   udpPort.send({
-//     address: "/timer",
-//     args: [
-//         {
-//             type: "f",
-//             value: min
-//         },
-//         {
-//             type: "f",
-//             value: sec
-//         },
-//         {
-//             type: "f",
-//             value: ds
-//         }
-//     ]
-// }, "127.0.0.1", 57120);
-// };
-
 ///////////// OSC /////////////
 
 server.listen(port);
@@ -176,8 +156,8 @@ function clock(init){
   var sec = Math.floor(time/1000);
   var mSec = time%1000;
 
-  communication(min, sec, mSec, "127.0.0.1", 57120);
-  communication(min, sec, mSec, "192.168.0.248", 57100);
+  // communication(min, sec, mSec, "127.0.0.1", 57120);
+  // communication(min, sec, mSec, "192.168.0.248", 57100);
 
   if(min < 10) {
       min = "0" + min;
