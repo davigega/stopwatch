@@ -14,39 +14,40 @@ socket.onmessage = function (event) {
   var data = JSON.parse(event.data);
   if(typeof(data.start) == "number" ){
     var time = data.start;
-    var min = Math.floor(time/100/60);
+    var min = Math.floor(Math.abs(time)/100/60);
     var sec = Math.floor(time/100);
     var mSec = time % 100;
-
+    console.log(time);
     if(min < 10) {
-        min = "0" + min;
+        min = "0" + Math.abs(min);
     }
     if(sec >= 60) {
-        sec = sec % 60;
+        sec = Math.abs(sec) % 60;
     }
     if(sec < 10) {
-        sec = "0" + sec;
+        sec = "0" + Math.abs(sec);
     }
-    document.getElementById('timerLabel').innerHTML = min + ":" + sec + ":" + mSec;
-  };
+    if(time < 0){
+      document.getElementById('timerLabel').innerHTML = "-" + min + ":" + sec + ":" + mSec;
+    } else {
+        document.getElementById('timerLabel').innerHTML = min + ":" + sec + ":" + mSec;
+    }
 
+  };
 
   if(data.status === 'Connected'){
       var span = document.getElementById('label');
       span.innerHTML = 'CONNECTED';
       span.classList.add('connected');
   }
-
   if(data.message === "start"){
     document.getElementById("startBtn").disabled = true;
     document.getElementById("sendStart").disabled = true;
   }
-
   if(data.message === "stop"){
     document.getElementById("startBtn").disabled = false;
     document.getElementById("sendStart").disabled = false;
   }
-
   if(data.message === "reset"){
     document.getElementById('timerLabel').innerHTML = "00:00:0";
     document.getElementById("startBtn").disabled = false;
@@ -83,14 +84,20 @@ document.querySelector('#resetBtn').addEventListener('click', function(event) {
 
 var startAt = function(){
     var time = document.querySelector('#startAt').value;
-    var re =/^[0-9][0-9]|[0-9]:[0-5][0-9]:([0-9][0-9]|[0-9])$/;
-
+    var re =/^(-|^$)[0-9][0-9]|[0-9]:[0-5][0-9]:([0-9][0-9]|[0-9])$/;
+    // console.log(time);
     if(re.test(time)){
       time = time.split(":")
+      // console.log(time[0][0]);
+      // console.log(time);
       var min = parseInt(time[0]*60);
       var sec = parseInt(time[1]);
       var ms = parseInt(time[2]);
       var init = parseInt(((min+sec)*100)+ms);
+      if(time[0][0] == "-"){
+        init = init*-1
+      }
+      // console.log(init);
       var json = JSON.stringify({"startAt": init});
       socket.send(json);
     }

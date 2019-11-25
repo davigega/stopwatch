@@ -27,12 +27,16 @@ var osc = require('osc');
    metadata: true
  });
 
- udpPort.on("message", function(oscMsg, timeTag, info){
-   console.log(("msg: ", oscMsg));
- })
+try {
+    udpPort.open();
+} catch (e) {
+    console.log("OSC port not available");
+}
 
- udpPort.open();
 
+udpPort.on("message", function(oscMsg, timeTag, info){
+  console.log(("msg: ", oscMsg));
+})
  udpPort.on("ready", function () {
      udpPort.send({
          address: "/test",
@@ -152,15 +156,19 @@ function clock(init){
   var time = Date.now()-startTime;
   time = time+(offset*10);
   trackTime = time;
-  var min = Math.floor(time/1000/60);
-  var sec = Math.floor(time/1000);
-  var mSec = time%1000;
+  var min = Math.floor(Math.abs(time)/1000/60);
+  var sec = Math.floor(Math.abs(time)/1000);
+  var mSec = Math.abs(time)%1000;
 
   // communication(min, sec, mSec, "127.0.0.1", 57120);
   // communication(min, sec, mSec, "192.168.0.248", 57100);
-
+  // console.log(time);
   if(min < 10) {
+    if(time < 0){
+      min = "-0" + min;
+    } else {
       min = "0" + min;
+    }
   }
   if(sec >= 60) {
       sec = sec % 60;
@@ -178,7 +186,11 @@ function clock(init){
           "ms": parseInt(mSec/100)
         }
       });
-    client.send(json);
+      try {
+          client.send(json);
+      } catch (e) {
+        console.log(e);
+      }
   });
   t = setTimeout(clock, 10)
 }
