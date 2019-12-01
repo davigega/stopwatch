@@ -14,111 +14,114 @@ var ip;
 var startTime;
 var trackTime;
 
-app.get('/ip', function(req, res){
+app.get('/ip', function(req, res) {
   res.send(ip);
- });
-
+});
 ///////////// OSC /////////////
 
 var osc = require('osc');
+var remoteHost = "192.168.1.110";
+var remotePort = "57120";
 
- var udpPort = new osc.UDPPort({
-   localAddress: "0.0.0.0",
-   localPort: 57991,
-   metadata: true
- });
+var udpPort = new osc.UDPPort({
+  localAddress: "0.0.0.0",
+  localPort: 57991,
+  remoteHost: remoteHost,
+  remotePort: remotePort
+  // metadata: true
+});
 
-udpPort.on("message", function(oscMsg, timeTag, info){
-   console.log(("msg: ", oscMsg));
- })
+try {
+  udpPort.open();
+} catch (e) {
+  console.log("OSC port not available");
+}
 
- udpPort.open();
+udpPort.on("ready", function() {
+  udpPort.send({
+    address: "/test",
+    args: [{
+        type: "s",
+        value: "timer ready"
+      },
+      {
+        type: "i",
+        value: 100
+      }
+    ]
+  }, remoteHost, remotePort);
+});
 
- udpPort.on("ready", function () {
-     udpPort.send({
-         address: "/test",
-         args: [
-           {
-             type: "s",
-             value: "ready"
-           },
-           {
-             type: "f",
-             value: 100
-           }
-         ]
-     }, "127.0.0.1", 8000);
- });
+udpPort.on("message", function(oscMsg, timeTag, info) {
+  console.log(("msg: ", oscMsg));
+})
 
-function start(ip, port){
+
+function start(ip, port) {
   udpPort.send({
     address: "/play",
-    args: [
-      {
-        type: "f",
-        value: 1
-      }
-    ]
+    args: [{
+      type: "f",
+      value: 1
+    }]
   }, ip, port)
 }
 
-function set(time, ip, port){
+function set(time, ip, port) {
   udpPort.send({
     address: "/time",
-    args: [
-      {
-        type: "f",
-        value: time/100
-      }
-    ]
+    args: [{
+      type: "f",
+      value: time / 100
+    }]
   }, ip, port)
 }
 
-function stop(ip, port){
+function stop(ip, port) {
   udpPort.send({
     address: "/stop",
-    args: [
-      {
-        type: "f",
-        value: 1
-      }
-    ]
+    args: [{
+      type: "f",
+      value: 1
+    }]
   }, ip, port)
 }
 
 function communication(min, sec, ds, ip, port) {
   udpPort.send({
     address: "/timer",
-    args: [
-        {
-            type: "f",
-            value: min
-        },
-        {
-            type: "f",
-            value: sec
-        },
-        {
-            type: "f",
-            value: ds
-        }
+    args: [{
+        type: "f",
+        value: min
+      },
+      {
+        type: "f",
+        value: sec
+      },
+      {
+        type: "f",
+        value: ds
+      }
     ]
-}, ip, port);
+  }, ip, port);
 };
 
 ///////////// OSC /////////////
 
 server.listen(port);
-
-var wss = new WSS({ port: 8081 });
+var wss = new WSS({
+  port: 8081
+});
 var users = 0;
 var t;
 
 wss.on('connection', function(socket) {
-  users = users+1;
+  users = users + 1;
   console.log('Connected Users:' + users);
 
-  var json = JSON.stringify({ status: 'Connected' });
+  var json = JSON.stringify({
+    status: 'Connected'
+  });
   socket.send(json);
   console.log('Sent: ' + json);
 
@@ -127,45 +130,50 @@ wss.on('connection', function(socket) {
 
     try {
       var jsonObj = JSON.parse(message)
-      if(jsonObj){
+      if (jsonObj) {
         offset = jsonObj.startAt;
-        console.log(offset);
-        set(offset, "127.0.0.1", 8000);
+        set(offset, remoteHost, remotePort);
         wss.clients.forEach(function each(client) {
-          var json = JSON.stringify({"start": offset});
+          var json = JSON.stringify({
+            "start": offset
+          });
           client.send(json);
           console.log('Sent: ' + json);
         })
       };
-    }
-    catch(err) {
-    }
+    } catch (err) {}
 
-    if(message === "start"){
+    if (message === "start") {
       timer();
       wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'start'});
+        var json = JSON.stringify({
+          message: 'start'
+        });
         client.send(json);
         console.log('Sent: ' + json);
       })
-      start("127.0.0.1", 8000);
+      start(remoteHost, remotePort);
     }
-    if(message === "stop"){
+    if (message === "stop") {
       clearTimeout(t);
-      offset = trackTime/10;
+      offset = trackTime / 10;
       wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'stop'});
+        var json = JSON.stringify({
+          message: 'stop'
+        });
         client.send(json);
         console.log('Sent: ' + json);
       })
-      stop("127.0.0.1", 8000);
+      stop(remoteHost, remotePort);
     }
-    if(message === "reset"){
+    if (message === "reset") {
       clearTimeout(t);
       offset = 0;
-      set(offset, "127.0.0.1", 8000);
+      set(offset, remoteHost, remotePort);
       wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'reset'});
+        var json = JSON.stringify({
+          message: 'reset'
+        });
         client.send(json);
         console.log('Sent: ' + json);
       })
@@ -173,7 +181,7 @@ wss.on('connection', function(socket) {
   });
   socket.on('close', function() {
     console.log('A Connection has been closed');
-    users = users-1;
+    users = users - 1;
     console.log('Connected Users:' + users);
   });
 
@@ -183,66 +191,63 @@ wss.on('connection', function(socket) {
 
 var offset = 0;
 
-function timer(){
+function timer() {
   //console.log(Date.now());
   startTime = Date.now();
   clock();
 };
 
-function clock(init){
-  var time = Date.now()-startTime;
-  time = time+(offset*10);
+function clock(init) {
+  var time = Date.now() - startTime;
+  time = time + (offset * 10);
   trackTime = time;
-  var min = Math.floor(time/1000/60);
-  var sec = Math.floor(time/1000);
-  var mSec = time%1000;
+  var min = Math.floor(time / 1000 / 60);
+  var sec = Math.floor(time / 1000);
+  var mSec = time % 1000;
 
-  if(min < 10) {
-      min = "0" + min;
+  if (min < 10) {
+    min = "0" + min;
   }
-  if(sec >= 60) {
-      sec = sec % 60;
+  if (sec >= 60) {
+    sec = sec % 60;
   }
-  if(sec < 10) {
-      sec = "0" + sec;
+  if (sec < 10) {
+    sec = "0" + sec;
   }
 
   //communication(min, sec, mSec, "127.0.0.1", 8000);
 
   wss.clients.forEach(function each(client) {
     var json = JSON.stringify({
-      "clock":
-        {
-          "mm": min,
-          "ss": sec,
-          "ms": parseInt(mSec/100)
-        }
-      });
+      "clock": {
+        "mm": min,
+        "ss": sec,
+        "ms": parseInt(mSec / 100)
+      }
+    });
     client.send(json);
   });
   t = setTimeout(clock, 10)
 }
 
-Object.keys(ifaces).forEach(function (ifname) {
+Object.keys(ifaces).forEach(function(ifname) {
   var alias = 0;
-
-  ifaces[ifname].forEach(function (iface) {
+  ifaces[ifname].forEach(function(iface) {
     if ('IPv4' !== iface.family || iface.internal !== false) {
       // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
       return;
     }
-
+    console.log(alias);
     if (alias >= 1) {
       // this single interface has multiple ipv4 addresses
       console.log("Ip available: ");
       console.log(ifname + ':' + alias, iface.address + ':' + port);
     } else {
       // this interface has only one ipv4 adress
-      if(ifname === "en0"){
+
         console.log("Connect to: ");
         console.log(ifname, iface.address + ':' + port);
         ip = iface.address;
-      }
     }
     ++alias;
   });
