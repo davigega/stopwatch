@@ -237,7 +237,6 @@ Object.keys(ifaces).forEach(function(ifname) {
       // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
       return;
     }
-    console.log(alias);
     if (alias >= 1) {
       // this single interface has multiple ipv4 addresses
       console.log("Ip available: ");
