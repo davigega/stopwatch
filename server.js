@@ -8,70 +8,20 @@ var WSS = require('ws').Server;
 
 var app = express().use(express.static('public'));
 var server = http.createServer(app);
+var ip;
 var port = 8080;
 
-var ip;
 var startTime;
 var trackTime;
+
+var osc_module = require('./osc-comm.js')
+
+const osc_send = osc_module.osc
+const reaper = osc_module.reaper
 
 app.get('/ip', function(req, res){
   res.send(ip);
  });
-///////////// OSC /////////////
-
-var osc = require('osc');
-
- var udpPort = new osc.UDPPort({
-   localAddress: "0.0.0.0",
-   localPort: 57991,
-   metadata: true
- });
-
-try {
-    udpPort.open();
-} catch (e) {
-    console.log("OSC port not available");
-}
-
-
-udpPort.on("message", function(oscMsg, timeTag, info){
-  console.log(("msg: ", oscMsg));
-})
- udpPort.on("ready", function () {
-     udpPort.send({
-         address: "/test",
-         args: [
-             {
-                 type: "s",
-                 value: "timer ready"
-             },
-             {
-                 type: "i",
-                 value: 100
-             }
-         ]
-     }, "127.0.0.1", 57120);
- });
-
-function communication(min, sec, ds, ip, port) {
-  udpPort.send({
-    address: "/timer",
-    args: [
-        {
-            type: "f",
-            value: min
-        },
-        {
-            type: "f",
-            value: sec
-        },
-        {
-            type: "f",
-            value: ds
-        }
-    ]
-}, ip, port);
-};
 
 ///////////// OSC /////////////
 
@@ -102,6 +52,10 @@ wss.on('connection', function(socket) {
           client.send(json);
           console.log('Sent: ' + json);
         })
+        osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
+        reaper({address: "/time", args: [{type: "f", value: offset/100}]})
+
+        // udpPort.send({address: "/startAt", args: [{type: "f", value: offset}]}, osc_ip, osc_port)
       };
     }
     catch(err) {
@@ -113,7 +67,12 @@ wss.on('connection', function(socket) {
         var json = JSON.stringify({message: 'start'});
         client.send(json);
         console.log('Sent: ' + json);
-      })
+      });
+    console.log("Sending OSC");
+    osc_send({address: "/play", args: [{type: "s", value: "0"}]})
+    reaper({address: "/play", args: [{type: "s", value: "0"}]})
+
+    // udpPort.send({address: "/play", args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
     }
     if(message === "stop"){
       clearTimeout(t);
@@ -123,6 +82,10 @@ wss.on('connection', function(socket) {
         client.send(json);
         console.log('Sent: ' + json);
       })
+      osc_send({address: "/stop", args: [{type: "s", value: "0"}]})
+      reaper({address: "/pause", args: [{type: "s", value: "0"}]})
+
+      // udpPort.send({address: "/stop",args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
     }
     if(message === "reset"){
       clearTimeout(t);
@@ -132,6 +95,9 @@ wss.on('connection', function(socket) {
         client.send(json);
         console.log('Sent: ' + json);
       })
+      osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
+      reaper({address: "/time", args: [{type: "f", value: offset}]})
+      // udpPort.send({address: "/startAt",args: [{type: "f", value: offset}]}, osc_ip, osc_port)
     }
   });
   socket.on('close', function() {
@@ -159,10 +125,7 @@ function clock(init){
   var min = Math.floor(Math.abs(time)/1000/60);
   var sec = Math.floor(Math.abs(time)/1000);
   var mSec = Math.abs(time)%1000;
-
-  // communication(min, sec, mSec, "127.0.0.1", 57120);
-  // communication(min, sec, mSec, "192.168.0.248", 57100);
-  // console.log(time);
+  
   if(min < 10) {
     if(time < 0){
       min = "-0" + min;
@@ -192,6 +155,7 @@ function clock(init){
         console.log(e);
       }
   });
+  osc_send({address: "/clock", args: [{type: "f", value: min},{type: "f", value: sec},{type: "f", value: mSec},]})
   t = setTimeout(clock, 10)
 }
 
