@@ -1,7 +1,7 @@
 "use strict"
 const osc = require('osc')
 
-var ip_arr = ["192.168.0.171"];
+var ip_arr = ["192.168.1.3"];
 var osc_port = 5005;
 
  var udpPort = new osc.UDPPort({

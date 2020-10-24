@@ -1,4 +1,3 @@
-
 var socket = new WebSocket('ws://'+ ip +':8081/');
 //console.log("ws://" + ip + ":8081/");
 socket.onopen = function(event) {

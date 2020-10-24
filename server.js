@@ -9,7 +9,14 @@ var WSS = require('ws').Server;
 var app = express().use(express.static('public'));
 var server = http.createServer(app);
 var ip;
-var port = 8080;
+const minimist = require('minimist');
+var args = minimist(process.argv.slice(2),{
+  alias:{
+    sp: 'server-port',
+  }
+});
+
+var port = args.sp || 8080;
 
 var startTime;
 var trackTime;
@@ -59,6 +66,7 @@ wss.on('connection', function(socket) {
       };
     }
     catch(err) {
+      // console.log(err);
     }
 
     if(message === "start"){
@@ -69,7 +77,7 @@ wss.on('connection', function(socket) {
         console.log('Sent: ' + json);
       });
     console.log("Sending OSC");
-    osc_send({address: "/play", args: [{type: "s", value: "0"}]})
+    osc_send({address: "/play", args: [{type: "i", value: "1"}]})
     reaper({address: "/play", args: [{type: "s", value: "0"}]})
 
     // udpPort.send({address: "/play", args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
@@ -82,7 +90,7 @@ wss.on('connection', function(socket) {
         client.send(json);
         console.log('Sent: ' + json);
       })
-      osc_send({address: "/stop", args: [{type: "s", value: "0"}]})
+      osc_send({address: "/stop", args: [{type: "i", value: "0"}]})
       reaper({address: "/pause", args: [{type: "s", value: "0"}]})
 
       // udpPort.send({address: "/stop",args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
@@ -105,8 +113,13 @@ wss.on('connection', function(socket) {
     users = users-1;
     console.log('Connected Users:' + users);
   });
-
+  socket.on('error', function(err){
+    console.log('\nA connection was lost abruptly!');
+    console.log("Maybe someone's display turned off");
+    console.log('Check connected devices!\n');
+  })
 });
+
 
 // ===========================================================================
 
@@ -125,7 +138,7 @@ function clock(init){
   var min = Math.floor(Math.abs(time)/1000/60);
   var sec = Math.floor(Math.abs(time)/1000);
   var mSec = Math.abs(time)%1000;
-  
+
   if(min < 10) {
     if(time < 0){
       min = "-0" + min;
