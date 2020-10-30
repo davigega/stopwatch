@@ -118,6 +118,11 @@ wss.on('connection', function(socket) {
     users = users-1;
     console.log('Connected Users:' + users);
   });
+  socket.on('error', function(err){
+    console.log('\nA connection was lost abruptly!');
+    console.log("Maybe someone's display turned off");
+    console.log('Check connected devices!\n');
+  })
 
 });
 
