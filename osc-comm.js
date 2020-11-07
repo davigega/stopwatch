@@ -4,15 +4,17 @@ const broadcastAddress = require('broadcast-address');
 
 // var ip_arr = ["localhost"];
 
-module.exports = function(iface, osc_port){
+module.exports = function(iface, osc_portArr, reaper_port){
   var broadcast = broadcastAddress(iface);
   var module = {};
-  console.log('- OSC broadcasting on address: '+broadcast+":"+osc_port+" -\n");
+  console.log('- OSC broadcasting on address: '+broadcast);
   module.osc = function(msg){
-    udpPort.send(msg, broadcast, osc_port)
+    for (var osc_port of osc_portArr) {
+      udpPort.send(msg, broadcast, osc_port)
+    }
   }
   module.reaper = function(msg){
-      udpPort.send(msg, "127.0.0.1", osc_port)
+      udpPort.send(msg, "127.0.0.1", reaper_port)
   }
   return module
 }
@@ -24,7 +26,7 @@ module.exports = function(iface, osc_port){
 // receive port
 var udpPort = new osc.UDPPort({
   localAddress: "0.0.0.0",
-  localPort: 57991,
+  localPort: 5000,
   metadata: true,
   broadcast:true
 });

@@ -50,8 +50,7 @@ var trackTime;
 // console.log(args.o);
 var osc_send;
 if(args.o){
-  console.log();
-  var osc_port = parseInt(args.o) || 5005
+  var osc_port = Array.isArray(args.o)? args.o : [5005]
   var osc_module = require('./osc-comm.js')(netDevice, osc_port)
   osc_send = osc_module.osc;
 } else {
@@ -70,174 +69,148 @@ if(reaperFlag){
 app.get('/ip', function(req, res){
   res.send(ip);
  });
-///////////// OSC /////////////
 
-var osc = require('osc');
 
- var udpPort = new osc.UDPPort({
-   localAddress: "0.0.0.0",
-   localPort: 57991,
-   metadata: true
+
+ server.listen(port);
+
+ var wss = new WSS({ port: 8081 });
+ var users = 0;
+ var t;
+
+ wss.on('connection', function(socket) {
+   users = users+1;
+   console.log('Connected Users:' + users);
+
+   var json = JSON.stringify({ status: 'Connected' });
+   socket.send(json);
+   console.log('Sent: ' + json);
+
+   socket.on('message', function(message) {
+     console.log('Received: ' + message);
+
+     try {
+       var jsonObj = JSON.parse(message)
+       if(jsonObj){
+         offset = jsonObj.startAt;
+         console.log(offset);
+         wss.clients.forEach(function each(client) {
+           var json = JSON.stringify({"start": offset});
+           client.send(json);
+           console.log('Sent: ' + json);
+         })
+         osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
+         reaper({address: "/time", args: [{type: "f", value: offset/100}]})
+
+         // udpPort.send({address: "/startAt", args: [{type: "f", value: offset}]}, osc_ip, osc_port)
+       };
+     }
+     catch(err) {
+       // console.log(err);
+     }
+
+     if(message === "start"){
+       timer();
+       wss.clients.forEach(function each(client) {
+         var json = JSON.stringify({message: 'start'});
+         client.send(json);
+         console.log('Sent: ' + json);
+       });
+     console.log("Sending OSC");
+     osc_send({address: "/play", args: [{type: "i", value: "1"}]})
+     reaper({address: "/play", args: [{type: "s", value: "0"}]})
+
+     // udpPort.send({address: "/play", args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
+     }
+     if(message === "stop"){
+       clearTimeout(t);
+       offset = trackTime/10;
+       wss.clients.forEach(function each(client) {
+         var json = JSON.stringify({message: 'stop'});
+         client.send(json);
+         console.log('Sent: ' + json);
+       })
+       osc_send({address: "/stop", args: [{type: "i", value: "0"}]})
+       reaper({address: "/pause", args: [{type: "s", value: "0"}]})
+
+       // udpPort.send({address: "/stop",args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
+     }
+     if(message === "reset"){
+       clearTimeout(t);
+       offset = 0;
+       wss.clients.forEach(function each(client) {
+         var json = JSON.stringify({message: 'reset'});
+         client.send(json);
+         console.log('Sent: ' + json);
+       })
+       osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
+       reaper({address: "/time", args: [{type: "f", value: offset}]})
+       // udpPort.send({address: "/startAt",args: [{type: "f", value: offset}]}, osc_ip, osc_port)
+     }
+   });
+   socket.on('close', function() {
+     console.log('A Connection has been closed');
+     users = users-1;
+     console.log('Connected Users:' + users);
+   });
+   socket.on('error', function(err){
+     console.log('\nA connection was lost abruptly!');
+     console.log("Maybe someone's display turned off");
+     console.log('Check connected devices!\n');
+   })
  });
 
- udpPort.on("message", function(oscMsg, timeTag, info){
-   console.log(("msg: ", oscMsg));
- })
 
- udpPort.open();
+ // ===========================================================================
 
- udpPort.on("ready", function () {
-     udpPort.send({
-         address: "/test",
-         args: [
-             {
-                 type: "s",
-                 value: "timer ready"
-             },
-             {
-                 type: "i",
-                 value: 100
-             }
-         ]
-     }, "127.0.0.1", 57120);
- });
+ var offset = 0;
 
-function communication(min, sec, ds, ip, port) {
-  udpPort.send({
-    address: "/timer",
-    args: [
-        {
-            type: "f",
-            value: min
-        },
-        {
-            type: "f",
-            value: sec
-        },
-        {
-            type: "f",
-            value: ds
-        }
-    ]
-}, ip, port);
-};
+ function timer(){
+   //console.log(Date.now());
+   startTime = Date.now();
+   clock();
+ };
 
-///////////// OSC /////////////
+ function clock(init){
+   var time = Date.now()-startTime;
+   time = time+(offset*10);
+   trackTime = time;
+   var min = Math.floor(Math.abs(time)/1000/60);
+   var sec = Math.floor(Math.abs(time)/1000);
+   var mSec = Math.abs(time)%1000;
 
-server.listen(port);
+   if(min < 10) {
+     if(time < 0){
+       min = "-0" + min;
+     } else {
+       min = "0" + min;
+     }
+   }
+   if(sec >= 60) {
+       sec = sec % 60;
+   }
+   if(sec < 10) {
+       sec = "0" + sec;
+   }
 
-var wss = new WSS({ port: 8081 });
-var users = 0;
-var t;
-
-wss.on('connection', function(socket) {
-  users = users+1;
-  console.log('Connected Users:' + users);
-
-  var json = JSON.stringify({ status: 'Connected' });
-  socket.send(json);
-  console.log('Sent: ' + json);
-
-  socket.on('message', function(message) {
-    console.log('Received: ' + message);
-
-    try {
-      var jsonObj = JSON.parse(message)
-      if(jsonObj){
-        offset = jsonObj.startAt;
-        console.log(offset);
-        wss.clients.forEach(function each(client) {
-          var json = JSON.stringify({"start": offset});
-          client.send(json);
-          console.log('Sent: ' + json);
-        })
-        osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
-        reaper({address: "/time", args: [{type: "f", value: offset/100}]})
-        // udpPort.send({address: "/startAt", args: [{type: "f", value: offset}]}, osc_ip, osc_port)
-      };
-    }
-    catch(err) {
-    }
-
-    if(message === "start"){
-      timer();
-      wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'start'});
-        client.send(json);
-        console.log('Sent: ' + json);
-      })
-    }
-    if(message === "stop"){
-      clearTimeout(t);
-      offset = trackTime/10;
-      wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'stop'});
-        client.send(json);
-        console.log('Sent: ' + json);
-      })
-    }
-    if(message === "reset"){
-      clearTimeout(t);
-      offset = 0;
-      wss.clients.forEach(function each(client) {
-        var json = JSON.stringify({message: 'reset'});
-        client.send(json);
-        console.log('Sent: ' + json);
-      })
-    }
-  });
-  socket.on('close', function() {
-    console.log('A Connection has been closed');
-    users = users-1;
-    console.log('Connected Users:' + users);
-  });
-
-});
-
-// ===========================================================================
-
-var offset = 0;
-
-function timer(){
-  //console.log(Date.now());
-  startTime = Date.now();
-  clock();
-};
-
-function clock(init){
-  var time = Date.now()-startTime;
-  time = time+(offset*10);
-  trackTime = time;
-  var min = Math.floor(time/1000/60);
-  var sec = Math.floor(time/1000);
-  var mSec = time%1000;
-
-  // communication(min, sec, mSec, "127.0.0.1", 57120);
-  // communication(min, sec, mSec, "192.168.0.248", 57100);
-
-  if(min < 10) {
-      min = "0" + min;
-  }
-  if(sec >= 60) {
-      sec = sec % 60;
-  }
-  if(sec < 10) {
-      sec = "0" + sec;
-  }
-
-  wss.clients.forEach(function each(client) {
-    var json = JSON.stringify({
-      "clock":
-        {
-          "mm": min,
-          "ss": sec,
-          "ms": parseInt(mSec/100)
-        }
-      });
-    client.send(json);
-  });
-  t = setTimeout(clock, 10)
-}
+   wss.clients.forEach(function each(client) {
+     var json = JSON.stringify({
+       "clock":
+         {
+           "mm": min,
+           "ss": sec,
+           "ms": parseInt(mSec/100)
+         }
+       });
+       try {
+           client.send(json);
+       } catch (e) {
+         console.log(e);
+       }
+   });
+   osc_send({address: "/clock", args: [{type: "f", value: min},{type: "f", value: sec},{type: "f", value: mSec},]})
+   t = setTimeout(clock, 10)
+ }
 
 
 console.log("Connect to: ");

@@ -1,9 +1,7 @@
-
-
 'use strict';
 
-var os = require('os');
-var ifaces = os.networkInterfaces();
+let os = require('os');
+let ifaces = os.networkInterfaces();
 
 Object.keys(ifaces).forEach(function (ifname) {
   var alias = 0;
