@@ -1,13 +1,12 @@
 'use strict';
 
-var os = require('os');
-var ifaces = os.networkInterfaces();
 var http = require('http');
 var express = require('express');
 var WSS = require('ws').Server;
 
 var app = express().use(express.static('public'));
 var server = http.createServer(app);
+
 const minimist = require('minimist');
 var args = minimist(process.argv.slice(2),{
   alias:{
@@ -16,38 +15,15 @@ var args = minimist(process.argv.slice(2),{
   }
 });
 
-var ip;
-var netDevice;
+const localip = require("./localip.js")
+var ip = localip.ip;
+var netDevice = localip.netDevice;
 var port = args.sp || 8080;
-
-Object.keys(ifaces).forEach(function (ifname) {
-  var alias = 0;
-
-  ifaces[ifname].forEach(function (iface) {
-    if ('IPv4' !== iface.family || iface.internal !== false) {
-      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
-      return;
-    }
-    if (alias >= 1) {
-      // this single interface has multiple ipv4 addresses
-      console.log("Ip available: ");
-      console.log(ifname + ':' + alias, iface.address + ':' + port);
-    } else {
-      // this interface has only one ipv4 adress
-      ip = iface.address;
-      netDevice = ifname;
-    }
-    ++alias;
-  });
-});
 
 var startTime;
 var trackTime;
 
 // OSC
-
-// var oscFlag = args.o ? true : false;
-// console.log(args.o);
 var osc_send;
 if(args.o){
   var osc_port = Array.isArray(args.o)? args.o : [5005]
@@ -57,9 +33,8 @@ if(args.o){
   osc_send = (gc)=>{};
 }
 // REAPER
-var reaperFlag = args.reaper ? true : false;
 var reaper;
-if(reaperFlag){
+if(args.reaper){
   reaper = osc_module.reaper;
 } else {
   reaper = (gc)=>{};
@@ -69,8 +44,6 @@ if(reaperFlag){
 app.get('/ip', function(req, res){
   res.send(ip);
  });
-
-
 
  server.listen(port);
 
@@ -101,8 +74,6 @@ app.get('/ip', function(req, res){
          })
          osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
          reaper({address: "/time", args: [{type: "f", value: offset/100}]})
-
-         // udpPort.send({address: "/startAt", args: [{type: "f", value: offset}]}, osc_ip, osc_port)
        };
      }
      catch(err) {
@@ -116,11 +87,8 @@ app.get('/ip', function(req, res){
          client.send(json);
          console.log('Sent: ' + json);
        });
-     console.log("Sending OSC");
-     osc_send({address: "/play", args: [{type: "i", value: "1"}]})
-     reaper({address: "/play", args: [{type: "s", value: "0"}]})
-
-     // udpPort.send({address: "/play", args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
+       osc_send({address: "/play", args: [{type: "i", value: "1"}]})
+       reaper({address: "/play", args: [{type: "s", value: "0"}]})
      }
      if(message === "stop"){
        clearTimeout(t);
@@ -132,8 +100,6 @@ app.get('/ip', function(req, res){
        })
        osc_send({address: "/stop", args: [{type: "i", value: "0"}]})
        reaper({address: "/pause", args: [{type: "s", value: "0"}]})
-
-       // udpPort.send({address: "/stop",args: [{type: "s", value: "0"}]}, osc_ip, osc_port)
      }
      if(message === "reset"){
        clearTimeout(t);
@@ -145,7 +111,6 @@ app.get('/ip', function(req, res){
        })
        osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
        reaper({address: "/time", args: [{type: "f", value: offset}]})
-       // udpPort.send({address: "/startAt",args: [{type: "f", value: offset}]}, osc_ip, osc_port)
      }
    });
    socket.on('close', function() {
@@ -160,13 +125,11 @@ app.get('/ip', function(req, res){
    })
  });
 
-
  // ===========================================================================
 
  var offset = 0;
 
  function timer(){
-   //console.log(Date.now());
    startTime = Date.now();
    clock();
  };
@@ -214,5 +177,4 @@ app.get('/ip', function(req, res){
 
 
 console.log("Connect to: ");
-//console.log(ifname, iface.address + ':' + port);
 console.log(ip + ':' + port);
