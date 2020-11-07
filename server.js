@@ -8,11 +8,64 @@ var WSS = require('ws').Server;
 
 var app = express().use(express.static('public'));
 var server = http.createServer(app);
-var port = 8080;
+const minimist = require('minimist');
+var args = minimist(process.argv.slice(2),{
+  alias:{
+    sp: 'server-port',
+    o: 'osc'
+  }
+});
 
 var ip;
+var netDevice;
+var port = args.sp || 8080;
+
+Object.keys(ifaces).forEach(function (ifname) {
+  var alias = 0;
+
+  ifaces[ifname].forEach(function (iface) {
+    if ('IPv4' !== iface.family || iface.internal !== false) {
+      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
+      return;
+    }
+    if (alias >= 1) {
+      // this single interface has multiple ipv4 addresses
+      console.log("Ip available: ");
+      console.log(ifname + ':' + alias, iface.address + ':' + port);
+    } else {
+      // this interface has only one ipv4 adress
+      ip = iface.address;
+      netDevice = ifname;
+    }
+    ++alias;
+  });
+});
+
 var startTime;
 var trackTime;
+
+// OSC
+
+// var oscFlag = args.o ? true : false;
+// console.log(args.o);
+var osc_send;
+if(args.o){
+  console.log();
+  var osc_port = parseInt(args.o) || 5005
+  var osc_module = require('./osc-comm.js')(netDevice, osc_port)
+  osc_send = osc_module.osc;
+} else {
+  osc_send = (gc)=>{};
+}
+// REAPER
+var reaperFlag = args.reaper ? true : false;
+var reaper;
+if(reaperFlag){
+  reaper = osc_module.reaper;
+} else {
+  reaper = (gc)=>{};
+}
+
 
 app.get('/ip', function(req, res){
   res.send(ip);
@@ -98,6 +151,9 @@ wss.on('connection', function(socket) {
           client.send(json);
           console.log('Sent: ' + json);
         })
+        osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
+        reaper({address: "/time", args: [{type: "f", value: offset/100}]})
+        // udpPort.send({address: "/startAt", args: [{type: "f", value: offset}]}, osc_ip, osc_port)
       };
     }
     catch(err) {
@@ -183,26 +239,7 @@ function clock(init){
   t = setTimeout(clock, 10)
 }
 
-Object.keys(ifaces).forEach(function (ifname) {
-  var alias = 0;
 
-  ifaces[ifname].forEach(function (iface) {
-    if ('IPv4' !== iface.family || iface.internal !== false) {
-      // skip over internal (i.e. 127.0.0.1) and non-ipv4 addresses
-      return;
-    }
-
-    if (alias >= 1) {
-      // this single interface has multiple ipv4 addresses
-      console.log("Ip available: ");
-      console.log(ifname + ':' + alias, iface.address + ':' + port);
-    } else {
-      // this interface has only one ipv4 adress
-      console.log("Connect to: ");
-      //console.log(ifname, iface.address + ':' + port);
-      console.log(iface.address + ':' + port);
-      ip = iface.address;
-    }
-    ++alias;
-  });
-});
+console.log("Connect to: ");
+//console.log(ifname, iface.address + ':' + port);
+console.log(ip + ':' + port);

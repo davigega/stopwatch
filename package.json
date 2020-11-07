@@ -14,8 +14,10 @@
   "homepage": "https://github.com/markbrown4/websockets#readme",
   "description": "",
   "dependencies": {
-    "express": "^4.13.4",
-    "osc": "^2.2.3",
-    "ws": "^1.1.5"
+    "broadcast-address": "^1.0.2",
+    "express": "^4.17.1",
+    "minimist": "^1.2.5",
+    "osc": "^2.4.1",
+    "ws": "^3.3.3"
   }
 }
