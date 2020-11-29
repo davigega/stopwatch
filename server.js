@@ -26,7 +26,11 @@ var trackTime;
 // OSC
 var osc_send;
 if(args.o){
-  var osc_port = Array.isArray(args.o)? args.o : [5005]
+  if(Array.isArray(args.o)){
+    var osc_port = args.o
+  } else {
+    var osc_port = [args.o] || [5005]
+  }
   var osc_module = require('./osc-comm.js')(netDevice, osc_port)
   osc_send = osc_module.osc;
 } else {
