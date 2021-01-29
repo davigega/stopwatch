@@ -39,9 +39,30 @@ button {
 }
 
 div.container {
+  position:relative;
   max-width: 100%;
-  min-height: 100%;
+  min-height: 90vh;
+  text-align: center;
   margin: auto;
+}
+
+.clock {
+position: absolute;
+top:25%;
+
+}
+
+
+@media (orientation: landscape) {
+  .clock {
+    top:20%;
+  }
+}
+
+@media (orientation: portrait) {
+  .clock {
+    top:30%;
+  }
 }
 
 .status-bar {
@@ -59,6 +80,7 @@ span.connected {
 span.disconnected {
   color: #63372C; /*rosso*/
 }
+
 
 .start-at > label {
   display: block;

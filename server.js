@@ -16,34 +16,57 @@ var args = minimist(process.argv.slice(2),{
 });
 
 const localip = require("./localip.js")
-var ip = localip.ip;
-var netDevice = localip.netDevice;
+var ip = localip.ip || "127.0.0.1";
 var port = args.sp || 8080;
+var osc_port = args.o || 5000;
 
-var startTime;
-var trackTime;
+var min = 0
+var sec = 0
+var ds = 0
 
 // OSC
-var osc_send;
-if(args.o){
-  if(Array.isArray(args.o)){
-    var osc_port = args.o
-  } else {
-    var osc_port = [args.o] || [5005]
-  }
-  var osc_module = require('./osc-comm.js')(netDevice, osc_port)
-  osc_send = osc_module.osc;
-} else {
-  osc_send = (gc)=>{};
-}
-// REAPER
-var reaper;
-if(args.reaper){
-  reaper = osc_module.reaper;
-} else {
-  reaper = (gc)=>{};
+const osc = require('osc')
+// receive port
+var udpPort = new osc.UDPPort({
+  localAddress: "0.0.0.0",
+  localPort: osc_port,
+  metadata: true,
+  broadcast:true
+});
+
+try {
+    udpPort.open();
+} catch (e) {
+    console.log("OSC incoming UDPPort not available. Try changing the localPort attribute");
 }
 
+udpPort.on("message", function(oscMsg, timeTag, info){
+  switch (oscMsg.address) {
+    case '/min':
+      min = oscMsg.args[0].value;
+      if(min < 10) {
+          min = "0" + min;
+      }
+      break;
+    case '/sec':
+      sec = oscMsg.args[0].value;
+      if(sec < 10) {
+          sec = "0" + sec;
+      }
+      if(sec >= 60) {
+          sec = sec % 60;
+      }
+      break;
+    case '/ds':
+      ds = oscMsg.args[0].value
+      break;
+    default:
+      console.log(oscMsg.args[0].value);
+
+  }
+  // console.log("msg: ", [min, sec, ds]);
+  clock()
+})
 
 app.get('/ip', function(req, res){
   res.send(ip);
@@ -63,60 +86,8 @@ app.get('/ip', function(req, res){
    socket.send(json);
    console.log('Sent: ' + json);
 
-   socket.on('message', function(message) {
-     console.log('Received: ' + message);
+   socket.on('message', function(message) {});
 
-     try {
-       var jsonObj = JSON.parse(message)
-       if(jsonObj){
-         offset = jsonObj.startAt;
-         console.log(offset);
-         wss.clients.forEach(function each(client) {
-           var json = JSON.stringify({"start": offset});
-           client.send(json);
-           console.log('Sent: ' + json);
-         })
-         osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
-         reaper({address: "/time", args: [{type: "f", value: offset/100}]})
-       };
-     }
-     catch(err) {
-       // console.log(err);
-     }
-
-     if(message === "start"){
-       timer();
-       wss.clients.forEach(function each(client) {
-         var json = JSON.stringify({message: 'start'});
-         client.send(json);
-         console.log('Sent: ' + json);
-       });
-       osc_send({address: "/play", args: [{type: "i", value: "1"}]})
-       reaper({address: "/play", args: [{type: "s", value: "0"}]})
-     }
-     if(message === "stop"){
-       clearTimeout(t);
-       offset = trackTime/10;
-       wss.clients.forEach(function each(client) {
-         var json = JSON.stringify({message: 'stop'});
-         client.send(json);
-         console.log('Sent: ' + json);
-       })
-       osc_send({address: "/stop", args: [{type: "i", value: "0"}]})
-       reaper({address: "/pause", args: [{type: "s", value: "0"}]})
-     }
-     if(message === "reset"){
-       clearTimeout(t);
-       offset = 0;
-       wss.clients.forEach(function each(client) {
-         var json = JSON.stringify({message: 'reset'});
-         client.send(json);
-         console.log('Sent: ' + json);
-       })
-       osc_send({address: "/startAt", args: [{type: "f", value: offset}]})
-       reaper({address: "/time", args: [{type: "f", value: offset}]})
-     }
-   });
    socket.on('close', function() {
      console.log('A Connection has been closed');
      users = users-1;
@@ -131,42 +102,14 @@ app.get('/ip', function(req, res){
 
  // ===========================================================================
 
- var offset = 0;
-
- function timer(){
-   startTime = Date.now();
-   clock();
- };
-
- function clock(init){
-   var time = Date.now()-startTime;
-   time = time+(offset*10);
-   trackTime = time;
-   var min = Math.floor(Math.abs(time)/1000/60);
-   var sec = Math.floor(Math.abs(time)/1000);
-   var mSec = Math.abs(time)%1000;
-
-   if(min < 10) {
-     if(time < 0){
-       min = "-0" + min;
-     } else {
-       min = "0" + min;
-     }
-   }
-   if(sec >= 60) {
-       sec = sec % 60;
-   }
-   if(sec < 10) {
-       sec = "0" + sec;
-   }
-
+ function clock(){
    wss.clients.forEach(function each(client) {
      var json = JSON.stringify({
        "clock":
          {
            "mm": min,
            "ss": sec,
-           "ms": parseInt(mSec/100)
+           "ms": parseInt(ds)
          }
        });
        try {
@@ -175,10 +118,9 @@ app.get('/ip', function(req, res){
          console.log(e);
        }
    });
-   osc_send({address: "/clock", args: [{type: "f", value: min},{type: "f", value: sec},{type: "f", value: mSec},]})
-   t = setTimeout(clock, 10)
  }
-
+ console.log("OSC Listening on port: ", osc_port);
+ // console.log(ip + ':' + port);
 
 console.log("Connect to: ");
 console.log(ip + ':' + port);
