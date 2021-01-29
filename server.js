@@ -64,7 +64,7 @@ udpPort.on("message", function(oscMsg, timeTag, info){
       console.log(oscMsg.args[0].value);
 
   }
-  // console.log("msg: ", [min, sec, ds]);
+  // console.log(oscMsg);
   clock()
 })
 
